@@ -1,5 +1,5 @@
 # EN
-> ## HSR_MUTE_HELPERv2
+> ## Background Mute Helper v2
 > Tool program to mute programs(HSR or others) background. It is useful for the game that do not provide background mute.
 >
 > ## How To Use
@@ -21,7 +21,7 @@
 
 
 # KO
-> ## HSR_MUTE_HELPERv2
+> ## Background Mute Helper v2
 > 백그라운드 음소거를 지원하지 않는 게임에서 유용한 음소거 툴.
 >
 > ## How To Use
