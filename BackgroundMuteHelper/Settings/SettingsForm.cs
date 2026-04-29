@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using Newtonsoft.Json;
 
 namespace BackgroundMuteHelper
 {
@@ -12,7 +15,28 @@ namespace BackgroundMuteHelper
         public SettingsForm()
         {
             InitializeComponent();
+            LoadIconFromSettings();
             ReloadList();
+        }
+
+        private void LoadIconFromSettings()
+        {
+            try
+            {
+                string settingJson = File.ReadAllText(Path.Combine(Application.StartupPath, "setting.json"));
+                dynamic jsonObject = JsonConvert.DeserializeObject(settingJson);
+                string iconName = (string)jsonObject["icon"];
+                if (string.IsNullOrWhiteSpace(iconName)) return;
+
+                string iconPath = Path.Combine(Application.StartupPath, "Resources", iconName);
+                if (File.Exists(iconPath))
+                {
+                    this.Icon = new Icon(iconPath);
+                }
+            }
+            catch
+            {
+            }
         }
 
         public void RequestExit()
