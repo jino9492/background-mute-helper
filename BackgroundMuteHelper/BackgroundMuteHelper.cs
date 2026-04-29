@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Drawing;
 using System.Windows.Forms;
@@ -17,65 +17,107 @@ namespace BackgroundMuteHelper
 
     public partial class Mixer
     {
-        #region Find App
+        #region Settings state
         static string settingJson = File.ReadAllText(Application.StartupPath + "/setting.json");
         static dynamic jsonObject = JsonConvert.DeserializeObject(settingJson);
-        static JArray programArray = jsonObject["program"] as JArray;
-        static List<string> programList = programArray.ToObject<List<string>>();
+        static JArray programArray = (jsonObject["program"] as JArray) ?? new JArray();
+        static List<string> programList = programArray.ToObject<List<string>>() ?? new List<string>();
+        static HashSet<string> programSet = BuildProgramSet(programList);
 
-        public static int GetTargetProgramsCount()
+        private static HashSet<string> BuildProgramSet(IEnumerable<string> programs)
         {
-            if (programArray != null)
-                return programArray.Count;
-            else
-                return 0;
-        }
-
-        //public static int programCount = GetTargetProgramsCount();
-
-        public static Dictionary<Process, AudioSessionControl> GetTargetProgram(){
-            try
-            {
-                MMDeviceEnumerator enumerator = new MMDeviceEnumerator();
-                MMDevice defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                SessionCollection sessionEnumerator = defaultDevice.AudioSessionManager.Sessions;
-
-                Dictionary<Process, AudioSessionControl> result = new Dictionary<Process, AudioSessionControl>();
-                for (int i = 0; i < sessionEnumerator.Count; i++)
-                {
-
-                    if (Process.GetProcessById((int)sessionEnumerator[i].GetProcessID) != null)
-                    {
-                        int pid = (int)sessionEnumerator[i].GetProcessID;
-                        Process process = Process.GetProcessById(pid);
-                        if (programList.Contains(process.ProcessName))
-                        {
-                            result.Add(process, sessionEnumerator[i]);
-                        }
-                        else
-                        {
-                            try
-                            {
-                                result.Remove(process);
-                            }
-                            catch
-                            {
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-                return result;
-            }
-            catch {
-                return GetTargetProgram();
-            }
+            return new HashSet<string>(programs ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
         }
         #endregion
 
-        #region Mute App Functions
-        public static Dictionary<Process, AudioSessionControl> target { get; set; } = GetTargetProgram();
+        #region P/Invoke
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll")]
+        internal static extern IntPtr GetForegroundWindow();
+        #endregion
+
+        #region Target Discovery
+        public static Dictionary<int, AudioSessionControl> GetTargetProgram()
+        {
+            var result = new Dictionary<int, AudioSessionControl>();
+            try
+            {
+                var enumerator = new MMDeviceEnumerator();
+                var defaultDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                var sessions = defaultDevice.AudioSessionManager.Sessions;
+
+                for (int i = 0; i < sessions.Count; i++)
+                {
+                    var session = sessions[i];
+                    int pid;
+                    string name;
+                    try
+                    {
+                        pid = (int)session.GetProcessID;
+                        if (pid <= 0) continue;
+                        using (var p = Process.GetProcessById(pid))
+                        {
+                            name = p.ProcessName;
+                        }
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (programSet.Contains(name))
+                    {
+                        result[pid] = session;
+                    }
+                }
+            }
+            catch
+            {
+                // Swallow — caller retries on next rescan tick.
+            }
+            return result;
+        }
+
+        public static Dictionary<int, AudioSessionControl> target { get; set; } = GetTargetProgram();
+        #endregion
+
+        #region Mute Application
+        public static void OnForegroundChanged(IntPtr foregroundHwnd)
+        {
+            uint fgPid = 0;
+            if (foregroundHwnd != IntPtr.Zero)
+            {
+                GetWindowThreadProcessId(foregroundHwnd, out fgPid);
+            }
+            int fgPidInt = (int)fgPid;
+
+            var snapshot = target;
+            if (snapshot == null) return;
+
+            foreach (var kv in snapshot)
+            {
+                bool shouldMute = kv.Key != fgPidInt;
+                try
+                {
+                    var vol = kv.Value.SimpleAudioVolume;
+                    if (vol.Mute != shouldMute)
+                    {
+                        vol.Mute = shouldMute;
+                    }
+                }
+                catch
+                {
+                    // Session may have died; will be cleaned up on next rescan.
+                }
+            }
+        }
+
+        public static void ApplyMuteForCurrentForeground()
+        {
+            OnForegroundChanged(GetForegroundWindow());
+        }
         #endregion
     }
 
@@ -97,10 +139,30 @@ namespace BackgroundMuteHelper
         private ContextMenu contextMenu;
         private NotifyIcon notifyIcon;
 
+        #region Foreground hook
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax,
+            IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc,
+            uint idProcess, uint idThread, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+        private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType,
+            IntPtr hwnd, int idObject, int idChild,
+            uint dwEventThread, uint dwmsEventTime);
+
+        private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        private const uint WINEVENT_OUTOFCONTEXT = 0;
+
+        private WinEventDelegate winEventProc;
+        private IntPtr winEventHook;
+        private Timer sessionRescanTimer;
+        #endregion
+
         public BackgroundMuteHelper()
         {
-            FindTarget();
-
             contextMenu = new ContextMenu();
             contextMenu.MenuItems.Add(new MenuItem("설정 열기", new EventHandler((sender, e) =>
             {
@@ -123,98 +185,52 @@ namespace BackgroundMuteHelper
             this.TopMost = true;
             this.ShowInTaskbar = false;
 
+            Mixer.ApplyMuteForCurrentForeground();
+
+            // Push-based foreground change notification — zero CPU between switches.
+            // OUTOFCONTEXT delivers callbacks via the registering thread's message
+            // loop, so this runs on the UI thread without explicit Invoke.
+            winEventProc = OnForegroundEvent;
+            winEventHook = SetWinEventHook(
+                EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND,
+                IntPtr.Zero, winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
+
+            // Rescan sessions to catch newly launched / exited audio apps.
+            sessionRescanTimer = new Timer { Interval = 5000 };
+            sessionRescanTimer.Tick += SessionRescanTick;
+            sessionRescanTimer.Start();
+
             this.Shown += new EventHandler((sender, e) => OpenSettingsForm());
+            this.FormClosed += new FormClosedEventHandler((sender, e) => CleanupHooks());
         }
 
-        #region Target Program State Check Function
-        private Timer timer;
-        private Timer timer2;
-        public bool isActivatingCTS;
-        
-        public void FindTarget()
+        private void OnForegroundEvent(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
+            int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
-            ChangeTargetState().Wait();
-            timer2 = new Timer();
-            timer2.Interval = 5000;
-            timer2.Tick += new EventHandler(async (sender, e) =>
+            if (eventType != EVENT_SYSTEM_FOREGROUND || hwnd == IntPtr.Zero) return;
+            Mixer.OnForegroundChanged(hwnd);
+        }
+
+        private async void SessionRescanTick(object sender, EventArgs e)
+        {
+            var newTarget = await Task.Run(() => Mixer.GetTargetProgram());
+            Mixer.target = newTarget;
+            Mixer.ApplyMuteForCurrentForeground();
+        }
+
+        private void CleanupHooks()
+        {
+            if (winEventHook != IntPtr.Zero)
             {
-                Mixer.target = await Task.Run(() => Mixer.GetTargetProgram());
-                if (!isActivatingCTS)
-                {
-                    await ChangeTargetState();
-                }
-            });
-
-            timer2.Start();
-        }
-
-        public async Task ChangeTargetState()
-        {
-            isActivatingCTS = true;
-            IntPtr lastHandle = new IntPtr();
-            IntPtr handle = new IntPtr();
-            
-            timer = new Timer();
-            timer.Interval = 16;
-            timer.Tick += new EventHandler(async (sender, e) => {
-                    await Task.Run(() => {
-                    foreach(KeyValuePair<Process, AudioSessionControl> t in Mixer.target)
-                    {
-                        try
-                        {
-                            [DllImport("user32.dll")]
-                            static extern IntPtr GetForegroundWindow();
-
-                            handle = GetForegroundWindow();
-
-                            if (handle != lastHandle)
-                            {
-                                if (t.Key.MainWindowHandle == handle)
-                                {
-                                    UnMuteApp(t.Value);
-                                }
-                                else
-                                {
-                                    MuteApp(t.Value);
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            continue;
-                        }
-                        
-                    }
-                    
-                    lastHandle = handle;
-
-                    if (Mixer.target.Count <= 0)
-                    {
-                        isActivatingCTS = false;
-                        timer.Stop();
-                    }
-                            
-                });
-            });
-            timer.Start();
-        }
-        #endregion
-
-        #region Mute Function
-        public void MuteApp(AudioSessionControl target)
-        {
-            if (target != null)
+                UnhookWinEvent(winEventHook);
+                winEventHook = IntPtr.Zero;
+            }
+            if (sessionRescanTimer != null)
             {
-                target.SimpleAudioVolume.Mute = true;
+                sessionRescanTimer.Stop();
+                sessionRescanTimer.Dispose();
+                sessionRescanTimer = null;
             }
         }
-        public void UnMuteApp(AudioSessionControl target)
-        {
-            if (target != null)
-            {
-                target.SimpleAudioVolume.Mute = false;
-            }
-        }
-        #endregion
     }
 }

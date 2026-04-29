@@ -54,11 +54,13 @@ namespace BackgroundMuteHelper
 
                 programArray = (JArray)root["program"];
                 programList = new List<string>(normalized);
+                programSet = BuildProgramSet(programList);
             }
 
             try
             {
                 Mixer.target = GetTargetProgram();
+                ApplyMuteForCurrentForeground();
             }
             catch
             {
