@@ -16,7 +16,7 @@ namespace BackgroundMuteHelper
 
         private static string SettingPath
         {
-            get { return Path.Combine(Application.StartupPath, "setting.json"); }
+            get { return EmbeddedAssets.SettingFilePath; }
         }
 
         public static List<string> GetProgramList()
@@ -37,20 +37,10 @@ namespace BackgroundMuteHelper
 
             lock (settingLock)
             {
-                JObject root;
-                string path = SettingPath;
-                if (File.Exists(path))
-                {
-                    root = JObject.Parse(File.ReadAllText(path));
-                }
-                else
-                {
-                    root = new JObject();
-                    root["icon"] = "main.ico";
-                }
-
+                JObject root = JObject.Parse(EmbeddedAssets.ReadSettingJson());
                 root["program"] = JArray.FromObject(normalized);
-                File.WriteAllText(path, root.ToString(Formatting.Indented));
+                EmbeddedAssets.EnsureSettingDirectory();
+                File.WriteAllText(SettingPath, root.ToString(Formatting.Indented));
 
                 programArray = (JArray)root["program"];
                 programList = new List<string>(normalized);

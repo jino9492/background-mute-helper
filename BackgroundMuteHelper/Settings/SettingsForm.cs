@@ -23,15 +23,12 @@ namespace BackgroundMuteHelper
         {
             try
             {
-                string settingJson = File.ReadAllText(Path.Combine(Application.StartupPath, "setting.json"));
-                dynamic jsonObject = JsonConvert.DeserializeObject(settingJson);
+                dynamic jsonObject = JsonConvert.DeserializeObject(EmbeddedAssets.ReadSettingJson());
                 string iconName = (string)jsonObject["icon"];
-                if (string.IsNullOrWhiteSpace(iconName)) return;
-
-                string iconPath = Path.Combine(Application.StartupPath, "Resources", iconName);
-                if (File.Exists(iconPath))
+                Icon icon = EmbeddedAssets.LoadIcon(iconName);
+                if (icon != null)
                 {
-                    this.Icon = new Icon(iconPath);
+                    this.Icon = icon;
                 }
             }
             catch

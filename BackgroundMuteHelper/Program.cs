@@ -38,9 +38,12 @@ namespace BackgroundMuteHelper
             {
                 try
                 {
-                    string settingJson = File.ReadAllText(Application.StartupPath + "/setting.json");
-                    dynamic jsonObject = JsonConvert.DeserializeObject(settingJson);
-                    Icon icon = new Icon(Application.StartupPath + "/Resources/" + (string)jsonObject["icon"]);
+                    dynamic jsonObject = JsonConvert.DeserializeObject(EmbeddedAssets.ReadSettingJson());
+                    Icon icon = EmbeddedAssets.LoadIcon((string)jsonObject["icon"]);
+                    if (icon == null)
+                    {
+                        throw new FileNotFoundException("아이콘 파일을 찾을 수 없습니다.");
+                    }
                 }
                 catch
                 {

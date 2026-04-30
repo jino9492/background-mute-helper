@@ -18,7 +18,7 @@ namespace BackgroundMuteHelper
     public partial class Mixer
     {
         #region Settings state
-        static string settingJson = File.ReadAllText(Application.StartupPath + "/setting.json");
+        static string settingJson = EmbeddedAssets.ReadSettingJson();
         static dynamic jsonObject = JsonConvert.DeserializeObject(settingJson);
         static JArray programArray = (jsonObject["program"] as JArray) ?? new JArray();
         static List<string> programList = programArray.ToObject<List<string>>() ?? new List<string>();
@@ -133,7 +133,7 @@ namespace BackgroundMuteHelper
             }
         }
 
-        static string settingJson = File.ReadAllText(Application.StartupPath + "/setting.json");
+        static string settingJson = EmbeddedAssets.ReadSettingJson();
         static dynamic jsonObject = JsonConvert.DeserializeObject(settingJson);
 
         private ContextMenu contextMenu;
@@ -174,7 +174,7 @@ namespace BackgroundMuteHelper
             })));
 
             notifyIcon = new NotifyIcon();
-            notifyIcon.Icon = new Icon(Application.StartupPath + "/Resources/" + (string)jsonObject["icon"]);
+            notifyIcon.Icon = EmbeddedAssets.LoadIcon((string)jsonObject["icon"]);
             notifyIcon.ContextMenu = contextMenu;
             notifyIcon.DoubleClick += new EventHandler((sender, e) => OpenSettingsForm());
             notifyIcon.Visible = true;
