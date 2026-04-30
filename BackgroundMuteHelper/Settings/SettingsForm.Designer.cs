@@ -14,7 +14,7 @@ namespace BackgroundMuteHelper
         }
 
         private System.Windows.Forms.Label lblHeader;
-        private System.Windows.Forms.CheckedListBox lstApps;
+        private ItemOnlyCheckedListBox lstApps;
         private System.Windows.Forms.Button btnRefresh;
         private System.Windows.Forms.Button btnAddManual;
         private System.Windows.Forms.Button btnRemove;
@@ -25,7 +25,7 @@ namespace BackgroundMuteHelper
         private void InitializeComponent()
         {
             this.lblHeader = new System.Windows.Forms.Label();
-            this.lstApps = new System.Windows.Forms.CheckedListBox();
+            this.lstApps = new ItemOnlyCheckedListBox();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.btnAddManual = new System.Windows.Forms.Button();
             this.btnRemove = new System.Windows.Forms.Button();

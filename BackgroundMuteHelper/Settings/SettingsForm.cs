@@ -8,6 +8,30 @@ using Newtonsoft.Json;
 
 namespace BackgroundMuteHelper
 {
+    // CheckedListBox toggles the focused item when CheckOnClick is true and
+    // the user clicks the empty area below the items. Suppress those clicks.
+    internal class ItemOnlyCheckedListBox : CheckedListBox
+    {
+        private const int WM_LBUTTONDOWN = 0x0201;
+        private const int WM_LBUTTONDBLCLK = 0x0203;
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_LBUTTONDOWN || m.Msg == WM_LBUTTONDBLCLK)
+            {
+                int lParam = m.LParam.ToInt32();
+                int x = (short)(lParam & 0xFFFF);
+                int y = (short)((lParam >> 16) & 0xFFFF);
+                int index = IndexFromPoint(x, y);
+                if (index < 0 || index >= Items.Count)
+                {
+                    return;
+                }
+            }
+            base.WndProc(ref m);
+        }
+    }
+
     public partial class SettingsForm : Form
     {
         private bool allowExit = false;

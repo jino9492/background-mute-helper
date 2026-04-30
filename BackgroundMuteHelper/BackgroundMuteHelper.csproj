@@ -290,7 +290,7 @@
     </Compile>
     <Compile Include="Settings\SettingsManager.cs" />
     <Compile Include="Settings\SettingsForm.cs">
-      <SubType>Form</SubType>
+      <SubType>Component</SubType>
     </Compile>
     <Compile Include="Settings\SettingsForm.Designer.cs">
       <DependentUpon>SettingsForm.cs</DependentUpon>
