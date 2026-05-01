@@ -21,6 +21,7 @@ namespace BackgroundMuteHelper
         private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Label lblHint;
+        private System.Windows.Forms.CheckBox chkAutoOpen;
 
         private void InitializeComponent()
         {
@@ -32,6 +33,7 @@ namespace BackgroundMuteHelper
             this.btnSave = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.lblHint = new System.Windows.Forms.Label();
+            this.chkAutoOpen = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // lblHeader
@@ -89,7 +91,7 @@ namespace BackgroundMuteHelper
             // 
             // btnSave
             // 
-            this.btnSave.Location = new System.Drawing.Point(224, 425);
+            this.btnSave.Location = new System.Drawing.Point(224, 450);
             this.btnSave.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(98, 38);
@@ -100,7 +102,7 @@ namespace BackgroundMuteHelper
             // 
             // btnClose
             // 
-            this.btnClose.Location = new System.Drawing.Point(329, 425);
+            this.btnClose.Location = new System.Drawing.Point(329, 450);
             this.btnClose.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(98, 38);
@@ -113,23 +115,34 @@ namespace BackgroundMuteHelper
             // 
             this.lblHint.AutoSize = true;
             this.lblHint.ForeColor = System.Drawing.SystemColors.GrayText;
-            this.lblHint.Location = new System.Drawing.Point(14, 398);
+            this.lblHint.Location = new System.Drawing.Point(14, 425);
             this.lblHint.Name = "lblHint";
             this.lblHint.Size = new System.Drawing.Size(472, 15);
             this.lblHint.TabIndex = 5;
             this.lblHint.Text = "창을 닫으면 트레이로 숨고, 트레이 메뉴의 Exit로 완전히 종료됩니다.";
-            // 
+            //
+            // chkAutoOpen
+            //
+            this.chkAutoOpen.AutoSize = true;
+            this.chkAutoOpen.Location = new System.Drawing.Point(16, 395);
+            this.chkAutoOpen.Name = "chkAutoOpen";
+            this.chkAutoOpen.Size = new System.Drawing.Size(200, 19);
+            this.chkAutoOpen.TabIndex = 8;
+            this.chkAutoOpen.Text = "프로그램 실행 시 GUI 자동 실행";
+            this.chkAutoOpen.UseVisualStyleBackColor = true;
+            //
             // SettingsForm
-            // 
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(443, 480);
+            this.ClientSize = new System.Drawing.Size(443, 505);
             this.Controls.Add(this.lblHeader);
             this.Controls.Add(this.lstApps);
             this.Controls.Add(this.btnRefresh);
             this.Controls.Add(this.btnAddManual);
             this.Controls.Add(this.btnRemove);
             this.Controls.Add(this.lblHint);
+            this.Controls.Add(this.chkAutoOpen);
             this.Controls.Add(this.btnSave);
             this.Controls.Add(this.btnClose);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;

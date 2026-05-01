@@ -285,20 +285,21 @@
     <Compile Include="BackgroundMuteHelper.Designer.cs">
       <DependentUpon>BackgroundMuteHelper.cs</DependentUpon>
     </Compile>
-    <Compile Include="Settings\BackgroundMuteHelper.Settings.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Settings\SettingsManager.cs" />
-    <Compile Include="Settings\SettingsForm.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Settings\SettingsForm.Designer.cs">
+    <Compile Include="Audio\MuteTargets.cs" />
+    <Compile Include="Audio\AudioSessionInspector.cs" />
+    <Compile Include="GUI\AppPreferences.cs" />
+    <Compile Include="GUI\BackgroundMuteHelper.Settings.cs" />
+    <Compile Include="GUI\SettingsForm.cs" />
+    <Compile Include="GUI\SettingsForm.Designer.cs">
       <DependentUpon>SettingsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="BackgroundMuteHelper.resx">
       <DependentUpon>BackgroundMuteHelper.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GUI\SettingsForm.resx">
+      <DependentUpon>SettingsForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -311,9 +312,6 @@
       <DesignTime>True</DesignTime>
     </Compile>
     <EmbeddedResource Include="packages.config" />
-    <EmbeddedResource Include="Settings\SettingsForm.resx">
-      <DependentUpon>SettingsForm.cs</DependentUpon>
-    </EmbeddedResource>
     <None Include="FodyWeavers.xsd">
       <SubType>Designer</SubType>
     </None>

@@ -40,7 +40,28 @@ namespace BackgroundMuteHelper
         {
             InitializeComponent();
             LoadIconFromSettings();
+            LoadAutoOpenGui();
             ReloadList();
+        }
+
+        private void LoadAutoOpenGui()
+        {
+            chkAutoOpen.CheckedChanged -= chkAutoOpen_CheckedChanged;
+            chkAutoOpen.Checked = AppPreferences.GetAutoOpenGui();
+            chkAutoOpen.CheckedChanged += chkAutoOpen_CheckedChanged;
+        }
+
+        private void chkAutoOpen_CheckedChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                AppPreferences.SetAutoOpenGui(chkAutoOpen.Checked);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "설정 저장 중 오류가 발생했습니다: " + ex.Message,
+                    "Background Mute Helper", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void LoadIconFromSettings()
@@ -67,8 +88,8 @@ namespace BackgroundMuteHelper
 
         private void ReloadList()
         {
-            List<string> selected = Mixer.GetProgramList();
-            List<string> running = Mixer.GetRunningAudioProcessNames();
+            List<string> selected = MuteTargets.GetProgramList();
+            List<string> running = AudioSessionInspector.GetRunningAudioProcessNames();
 
             HashSet<string> union = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string s in selected) union.Add(s);
@@ -92,7 +113,7 @@ namespace BackgroundMuteHelper
                 lstApps.CheckedItems.Cast<string>(),
                 StringComparer.OrdinalIgnoreCase);
 
-            List<string> running = Mixer.GetRunningAudioProcessNames();
+            List<string> running = AudioSessionInspector.GetRunningAudioProcessNames();
             HashSet<string> union = new HashSet<string>(currentlyChecked, StringComparer.OrdinalIgnoreCase);
             foreach (string s in running) union.Add(s);
             foreach (object item in lstApps.Items) union.Add((string)item);
@@ -148,7 +169,8 @@ namespace BackgroundMuteHelper
             List<string> programs = lstApps.CheckedItems.Cast<string>().ToList();
             try
             {
-                Mixer.SaveProgramList(programs);
+                MuteTargets.Save(programs);
+                Mixer.RefreshTargets();
                 MessageBox.Show(this, "저장되었습니다.", "Background Mute Helper",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }

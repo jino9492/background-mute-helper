@@ -15,21 +15,8 @@ using System.Linq;
 namespace BackgroundMuteHelper
 {
 
-    public partial class Mixer
+    public static class Mixer
     {
-        #region Settings state
-        static string settingJson = EmbeddedAssets.ReadSettingJson();
-        static dynamic jsonObject = JsonConvert.DeserializeObject(settingJson);
-        static JArray programArray = (jsonObject["program"] as JArray) ?? new JArray();
-        static List<string> programList = programArray.ToObject<List<string>>() ?? new List<string>();
-        static HashSet<string> programSet = BuildProgramSet(programList);
-
-        private static HashSet<string> BuildProgramSet(IEnumerable<string> programs)
-        {
-            return new HashSet<string>(programs ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
-        }
-        #endregion
-
         #region P/Invoke
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
@@ -41,6 +28,7 @@ namespace BackgroundMuteHelper
         #region Target Discovery
         public static Dictionary<int, AudioSessionControl> GetTargetProgram()
         {
+            HashSet<string> targetSet = MuteTargets.GetProgramSet();
             var result = new Dictionary<int, AudioSessionControl>();
             try
             {
@@ -67,7 +55,7 @@ namespace BackgroundMuteHelper
                         continue;
                     }
 
-                    if (programSet.Contains(name))
+                    if (targetSet.Contains(name))
                     {
                         result[pid] = session;
                     }
@@ -117,6 +105,12 @@ namespace BackgroundMuteHelper
         public static void ApplyMuteForCurrentForeground()
         {
             OnForegroundChanged(GetForegroundWindow());
+        }
+
+        public static void RefreshTargets()
+        {
+            target = GetTargetProgram();
+            ApplyMuteForCurrentForeground();
         }
         #endregion
     }
@@ -200,7 +194,10 @@ namespace BackgroundMuteHelper
             sessionRescanTimer.Tick += SessionRescanTick;
             sessionRescanTimer.Start();
 
-            this.Shown += new EventHandler((sender, e) => OpenSettingsForm());
+            if (AppPreferences.GetAutoOpenGui())
+            {
+                this.Shown += new EventHandler((sender, e) => OpenSettingsForm());
+            }
             this.FormClosed += new FormClosedEventHandler((sender, e) => CleanupHooks());
         }
 
