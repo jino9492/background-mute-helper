@@ -153,6 +153,8 @@ namespace BackgroundMuteHelper
         private WinEventDelegate winEventProc;
         private IntPtr winEventHook;
         private Timer sessionRescanTimer;
+        private Timer foregroundPollTimer;
+        private IntPtr lastForegroundHwnd = IntPtr.Zero;
         #endregion
 
         public BackgroundMuteHelper()
@@ -181,18 +183,17 @@ namespace BackgroundMuteHelper
 
             Mixer.ApplyMuteForCurrentForeground();
 
-            // Push-based foreground change notification — zero CPU between switches.
-            // OUTOFCONTEXT delivers callbacks via the registering thread's message
-            // loop, so this runs on the UI thread without explicit Invoke.
-            winEventProc = OnForegroundEvent;
             winEventHook = SetWinEventHook(
                 EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND,
                 IntPtr.Zero, winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
 
-            // Rescan sessions to catch newly launched / exited audio apps.
             sessionRescanTimer = new Timer { Interval = 5000 };
             sessionRescanTimer.Tick += SessionRescanTick;
             sessionRescanTimer.Start();
+
+            foregroundPollTimer = new Timer { Interval = 250 };
+            foregroundPollTimer.Tick += ForegroundPollTick;
+            foregroundPollTimer.Start();
 
             if (AppPreferences.GetAutoOpenGui())
             {
@@ -204,8 +205,20 @@ namespace BackgroundMuteHelper
         private void OnForegroundEvent(IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
             int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
-            if (eventType != EVENT_SYSTEM_FOREGROUND || hwnd == IntPtr.Zero) return;
-            Mixer.OnForegroundChanged(hwnd);
+            if (eventType != EVENT_SYSTEM_FOREGROUND) return;
+            // The event's hwnd can be stale under rapid switching; trust the live value.
+            IntPtr current = Mixer.GetForegroundWindow();
+            if (current == IntPtr.Zero) return;
+            lastForegroundHwnd = current;
+            Mixer.OnForegroundChanged(current);
+        }
+
+        private void ForegroundPollTick(object sender, EventArgs e)
+        {
+            IntPtr current = Mixer.GetForegroundWindow();
+            if (current == IntPtr.Zero || current == lastForegroundHwnd) return;
+            lastForegroundHwnd = current;
+            Mixer.OnForegroundChanged(current);
         }
 
         private async void SessionRescanTick(object sender, EventArgs e)
@@ -227,6 +240,12 @@ namespace BackgroundMuteHelper
                 sessionRescanTimer.Stop();
                 sessionRescanTimer.Dispose();
                 sessionRescanTimer = null;
+            }
+            if (foregroundPollTimer != null)
+            {
+                foregroundPollTimer.Stop();
+                foregroundPollTimer.Dispose();
+                foregroundPollTimer = null;
             }
         }
     }
